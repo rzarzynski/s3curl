@@ -58,6 +58,7 @@ my $copySourceObject;
 my $copySourceRange;
 my $postBody;
 my $calculateContentMD5 = 0;
+my $enforceVanity;
 
 my $DOTFILENAME=".s3curl";
 my $EXECFILE=$FindBin::Bin;
@@ -98,6 +99,7 @@ GetOptions(
     'help' => \$help,
     'debug' => \$debug,
     'calculateContentMd5' => \$calculateContentMD5,
+    'enforceVanity:s' => \$enforceVanity,
 );
 
 my $usage = <<USAGE;
@@ -115,6 +117,7 @@ Usage $0 --id friendly-name (or AWSAccessKeyId) [options] -- [curl-options] [URL
   --createBucket [<region>]   create-bucket with optional location constraint
   --head                      HEAD request
   --debug                     enable debug logging
+  --enforceVanity [domain]    enforce the URL will be treated as vanity
  common curl options:
   -H 'x-amz-acl: public-read' another way of using canned ACLs
   -v                          verbose logging
@@ -300,9 +303,18 @@ sub getResourceToSign {
             return;
         }
     }
-    # cname case
-    $$resourceToSignRef = "/$host".$$resourceToSignRef;
-    debug("cname endpoint signing case");
+
+    if (defined $enforceVanity) {
+        if (length($enforceVanity) > 0 && $host =~ /(.*)\.$enforceVanity/) {
+            my $vanityBucket = $1;
+            $$resourceToSignRef = "/$vanityBucket".$$resourceToSignRef;
+        }
+        debug("enforced vanity endpoint signing case");
+    } else {
+        # cname case
+        $$resourceToSignRef = "/$host".$$resourceToSignRef;
+        debug("cname endpoint signing case");
+    }
 }
 
 
